@@ -1,0 +1,9 @@
+node_modules
+js/
+/package-lock.json
+.shadow-cljs/
+/.cpcache
+/.out/
+/.lsp/
+/.clj-kondo/
+.nrepl-port/
