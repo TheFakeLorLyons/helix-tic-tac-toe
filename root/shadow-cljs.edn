@@ -4,7 +4,8 @@
                    :asset-path "js"
                    :modules {:ttt {:init-fn tic-tac-toe.core/init
                                    :entries [tic-tac-toe.core]}}
-                   :devtools {:http-port    8080
+                   :devtools {:http-root "."
+                              :http-port 8080
                               :reload-strategy :full
                               :compiler-options {:closure-defines
                                                  {helix.experimental.refresh/enabled true}}}}}}

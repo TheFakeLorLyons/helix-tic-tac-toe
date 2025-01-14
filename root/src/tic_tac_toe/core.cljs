@@ -4,7 +4,7 @@
             [helix.dom :as d]
             [refx.alpha :as refx :refer [reg-event-db reg-event-fx reg-sub dispatch-sync use-sub dispatch]]
             [tic-tac-toe.game :as main]
-            [tic-tac-toe.components.art :as art]))
+            [tic-tac-toe.art :as art]))
 
 (defonce root (atom nil))
 
