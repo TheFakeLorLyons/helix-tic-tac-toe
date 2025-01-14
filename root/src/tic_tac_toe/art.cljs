@@ -1,4 +1,4 @@
-(ns tic-tac-toe.components.art
+(ns tic-tac-toe.art
   (:require [helix.core :refer [defnc $]]
             [helix.hooks :as hooks]
             [helix.dom :as d]
