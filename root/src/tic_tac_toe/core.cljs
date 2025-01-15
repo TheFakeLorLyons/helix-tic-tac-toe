@@ -1,9 +1,10 @@
 (ns tic-tac-toe.core
   (:require ["react-dom/client" :as rdom]
-            [helix.core :refer [defnc $]]
+            [helix.core :refer [defnc $ defhook]]
             [helix.dom :as d]
+            [helix.hooks :as hooks]
             [refx.alpha :as refx :refer [reg-event-db reg-event-fx reg-sub dispatch-sync use-sub dispatch]]
-            [tic-tac-toe.game :as main]
+            [tic-tac-toe.game :as game]
             [tic-tac-toe.art :as art]))
 
 (defonce root (atom nil))
@@ -27,6 +28,27 @@
    :mobile? false})
 
 (defonce app-db (atom initial-game-state))
+
+(defhook use-mobile-check []
+  (let [[is-mobile set-is-mobile] (hooks/use-state false)
+        check-mobile (hooks/use-callback
+                      []
+                      (fn []
+                        (let [user-agent (.-userAgent js/navigator)
+                              mobile-check (or (re-find #"Mobi" user-agent)
+                                               (re-find #"Android" user-agent)
+                                               (re-find #"iPhone" user-agent)
+                                               (re-find #"iPad" user-agent)
+                                               (< (.-innerWidth js/window) 768))]
+                          (set-is-mobile mobile-check))))]
+        (hooks/use-effect
+       []
+       (check-mobile)
+       (let [handle-resize #(check-mobile)]
+         (.addEventListener js/window "resize" handle-resize)
+         #(.removeEventListener js/window "resize" handle-resize)))
+    
+      is-mobile))
 
 (reg-event-db
  :initialize-game
@@ -64,7 +86,7 @@
 (reg-event-fx
  :make-move
  (fn [{:keys [db]} [_ row col-key]]
-   (let [new-state (main/make-move row col-key db)]
+   (let [new-state (game/make-move row col-key db)]
      (merge
       {:db new-state}
       (when (and (= (:game-mode new-state) "1p")
@@ -75,10 +97,10 @@
 (reg-event-db
  :computer-move
  (fn [db _]
-   (let [computer-move (main/get-computer-move (:board-data db))
+   (let [computer-move (game/get-computer-move (:board-data db))
          row (first (filter #(= (:id %) (get-in computer-move [:row :id])) (:board-data db)))
          col (:col computer-move)]
-     (main/make-move row col db))))
+     (game/make-move row col db))))
 
 (reg-event-db
  :reset-game
@@ -97,18 +119,25 @@
    db))
 
 (defnc app []
-  (let [state (use-sub [:game-state])]
-    (js/console.log (str "mobile? " (:mobile? state)))
+  (let [state (use-sub [:game-state])
+        is-mobile (use-mobile-check)]
+    (hooks/use-effect
+     [is-mobile]
+     (js/console.log "Is mobile?" is-mobile)
+     (js/console.log "Attempting to render:" (if is-mobile "mobile container" "main container")))
+
+
     (d/div {:id "global-body"
             :class "relative min-h-screen"}
-           ($ main/toggle-theme-button)
+           ($ game/toggle-theme-button)
            (when (:show-background state)
              ($ art/scene {:turns (:turns state)}))
-           ($ main/game-container-main))))
+           (if is-mobile
+             ($ game/mobile-game-container)
+             ($ game/game-container)))))
 
 (defn ^:dev/after-load after-load []
-  (when-let [root-element @root]
-    (.render root-element ($ app))))
+  (.render @root ($ app)))
 
 (defn run-app [container]
   (if-let [root-element @root]

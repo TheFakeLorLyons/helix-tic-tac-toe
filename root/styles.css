@@ -20,7 +20,7 @@ body {
   height: 100vh;
 }
 
-#main-container {
+#game-container {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -32,6 +32,15 @@ body {
   gap:10px;
   bottom: 200px;
 }
+#mobile-game-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: -750px;
+  text-align: center;
+  height: 100vh;
+  gap: 10px;
+}
+
 
 #page-heading {
   display: flex;
@@ -40,6 +49,10 @@ body {
   justify-self: center;
   margin-top: 1vh;
   margin-bottom: 1vh;
+}
+#mobile-page-heading {
+  display: flex;
+  flex-direction: column;
 }
 
 #scene {

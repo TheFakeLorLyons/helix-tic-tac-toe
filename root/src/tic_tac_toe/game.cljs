@@ -36,8 +36,8 @@
   (let [winner (check-winner current-board)
         opponent (if (= player "X") "O" "X")]
     (cond
-      (= winner player) 10
-      (= winner opponent) -10
+      (= winner player) (+ 10 (count (get-available-moves current-board)))
+      (= winner opponent) (- -10 (count (get-available-moves current-board)))
       :else 0)))
 
 (def memo-evaluate-board (memoize evaluate-board))
@@ -54,18 +54,23 @@
       (let [results
             (loop [moves-left moves
                    best-score js/Number.NEGATIVE_INFINITY
-                   best-move nil
+                   best-moves []
                    alpha alpha]
-              (if (or (empty? moves-left) (>= alpha beta))
-                [best-score best-move]
+              (if (or (empty? moves-left) (> alpha beta))
+                [best-score (when (seq best-moves)
+                              (rand-nth best-moves))]
                 (let [[row col-key] (first moves-left)
                       new-board (make-move-on-board current-board row col-key player)
                       [score _] (minimax new-board player (dec depth) false alpha beta)
+                      new-best-moves (cond
+                                       (> score best-score) [[row col-key]]
+                                       (= score best-score) (conj best-moves [row col-key])
+                                       :else best-moves)
                       new-best-score (max best-score score)
                       new-alpha (max alpha new-best-score)]
                   (recur (rest moves-left)
                          new-best-score
-                         (if (> score best-score) [row col-key] best-move)
+                         new-best-moves
                          new-alpha))))]
         results)
 
@@ -74,18 +79,23 @@
             results
             (loop [moves-left moves
                    best-score js/Number.POSITIVE_INFINITY
-                   best-move nil
+                   best-moves []
                    beta beta]
-              (if (or (empty? moves-left) (<= beta alpha))
-                [best-score best-move]
+              (if (or (empty? moves-left) (< beta alpha))
+                [best-score (when (seq best-moves)
+                              (rand-nth best-moves))]
                 (let [[row col-key] (first moves-left)
                       new-board (make-move-on-board current-board row col-key opponent)
                       [score _] (minimax new-board player (dec depth) true alpha beta)
+                      new-best-moves (cond
+                                       (< score best-score) [[row col-key]]
+                                       (= score best-score) (conj best-moves [row col-key])
+                                       :else best-moves)
                       new-best-score (min best-score score)
                       new-beta (min beta new-best-score)]
                   (recur (rest moves-left)
                          new-best-score
-                         (if (< score best-score) [row col-key] best-move)
+                         new-best-moves
                          new-beta))))]
         results))))
 
@@ -131,6 +141,22 @@
                       :on-click #(dispatch [:select-game-mode "2p"])}
                      "2 Player Game"))))))
 
+(defnc mobile-game-mode-selection []
+  (let [state (use-sub [:game-state])]
+    (d/div {:class "mb-4"}
+           (when (not (state :game-mode))
+             (d/h6 {:class "text-xl mb-2"} "Select Game Mode"))
+           (when (not (:setup-complete state))
+             (d/div {:class "space-x-4"}
+                    (d/button
+                     {:class "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      :on-click #(dispatch [:select-game-mode "1p"])}
+                     "1 Player Game")
+                    (d/button
+                     {:class "px-4 py-2 bg-green-500 text-white rounded hover:bg-blue-600"
+                      :on-click #(dispatch [:select-game-mode "2p"])}
+                     "2 Player Game"))))))
+
 (defnc player-name-input []
   (let [state (use-sub [:game-state])
         player1-name (or (:player1-name state) "")
@@ -149,6 +175,36 @@
                               :on-blur #(when (empty? player1-name) (set-player1-name ""))})
                     (when (= (:game-mode state) "2p")
                       (d/input {:type "text" 
+                                :class "border p-2 rounded"
+                                :value (or (:player2-name state) "Player 2")
+                                :on-change #(set-player2-name (.. % -target -value))
+                                :on-focus #(set-player2-name "")
+                                :on-blur #(when (empty? player2-name) (set-player2-name ""))})))
+             (d/button {:class "px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mt-2"
+                        :disabled (or (empty? (:player1-name state))
+                                      (and (= (:game-mode state) "2p")
+                                           (empty? (:player2-name state))))
+                        :on-click #(dispatch [:start-game])}
+                       "Start Game")))))
+
+(defnc mobile-player-name-input []
+  (let [state (use-sub [:game-state])
+        player1-name (or (:player1-name state) "")
+        player2-name (or (:player2-name state) "")
+        set-player1-name #(dispatch [:update-player-name 1 %])
+        set-player2-name #(dispatch [:update-player-name 2 %])]
+    (when (and (:game-mode state) (not (:setup-complete state)))
+      (d/div {:class "mb-4"}
+             (d/h4 {:class "text-xl mb-2"} "Enter Player Names")
+             (d/div {:class "space-y-2"}
+                    (d/input {:type "text"
+                              :class "border p-2 rounded mr-2"
+                              :value (or (:player1-name state) "")
+                              :on-change #(set-player1-name (.. % -target -value))
+                              :on-focus #(set-player1-name "")
+                              :on-blur #(when (empty? player1-name) (set-player1-name ""))})
+                    (when (= (:game-mode state) "2p")
+                      (d/input {:type "text"
                                 :class "border p-2 rounded"
                                 :value (or (:player2-name state) "Player 2")
                                 :on-change #(set-player2-name (.. % -target -value))
@@ -190,6 +246,36 @@
                              " wins!"))
                    (d/p {:class "text-xl font-bold"} "It's a draw!"))))))))
 
+(defnc mobile-statistics []
+  (let [state (use-sub [:game-state])]
+    (when (:setup-complete state)
+      (d/div {:id "stats-and-winning-message"}
+             (d/div {:id "stats"
+                     :style {:font-size "11pt"}}
+                    (d/div {:id "left-stats"}
+                           (d/p (str "Total Games Played: " (:total-games state)))
+                           (d/p (str (:player1-name state) " (X): " (:player1-wins state) " wins"))
+                           (d/p (str (:player2-name state) " (O): " (:player2-wins state) " wins")))
+                    (d/div {:id "right-stats"}
+                           (d/p (str "Current Turns: " (:turns state)))
+                           (d/p (str "Draws: " (:draws state)))
+                           (d/p (str "Current Player: "
+                                     (if (:game-over state)
+                                       "Game Over"
+                                       (str (if (= (:current-player state) "X")
+                                              (:player1-name state)
+                                              (:player2-name state))
+                                            " (" (:current-player state) ")"))))))
+             (when (:game-over state)
+               (let [winner (check-winner (:board-data state))]
+                 (if winner
+                   (d/p {:class "text-xl font-bold"}
+                        (str (if (= winner "X")
+                               (:player1-name state)
+                               (:player2-name state))
+                             " wins!"))
+                   (d/p {:class "text-xl font-bold"} "It's a draw!"))))))))
+
 (defnc tic-tac-table []
   (let [state (use-sub [:game-state])]
     (when (:setup-complete state)
@@ -217,25 +303,46 @@
                :on-click #(dispatch [:new-game])}
               "New Game")))))
 
-(defnc page-heading []
-  (let [state (use-sub [:game-state])]
-    (if (not (state :game-mode))
-      (d/h1 {:style {:padding "0" :margin-bottom "0"}} "Tic Tac Toe")
-      (d/h4 {:style {:padding "0" :margin-bottom "0"}} 
-       (state :player1-name) " vs " (if (state :player2-name)
-                                           (state :player2-name)
-                                           "Computer")))))
+(defnc mobile-page-heading []
+  (d/div {:id "mobile-page-heading"}
+         (let [state (use-sub [:game-state])]
+           (if (not (state :game-mode))
+             (d/h3 "Tic Tac Toe!")
+             (d/h4 {:style {:padding "0" :margin-top "50px" :margin-bottom "0px"}}
+              (state :player1-name) " vs " (if (state :player2-name)
+                                                  (state :player2-name)
+                                                  "Computer"))))))
+
+(defnc page-heading [] 
+  (d/div {:id "page-heading"}
+         (let [state (use-sub [:game-state])]
+           (if (not (state :game-mode))
+             (d/h1 {:style {:padding "0" :margin-bottom "0"}} "Tic Tac Toe")
+             (d/h4 {:style {:padding "0" :margin-bottom "0"}}
+                   (state :player1-name) " vs " (if (state :player2-name)
+                                                  (state :player2-name)
+                                                  "Computer"))))))
 
 (defnc toggle-theme-button []
-  (d/div {:id "global-body"
+  (d/div {:id "theme-holster"
           :class "relative min-h-screen"}
          (d/button {:id "theme-button"
                     :class "theme-button"
                     :on-click #(dispatch [:toggle-background])}
                    "Toggle Background")))
 
-(defnc game-container-main []
-  (d/div {:id "main-container"} 
+(defnc mobile-game-container []
+  (let [state (use-sub [:game-state])]
+    (d/div  {:id "mobile-game-container"}
+            ($ mobile-page-heading)
+            ($ mobile-game-mode-selection)
+            ($ mobile-player-name-input)
+            ($ mobile-statistics)
+            ($ tic-tac-table)
+            ($ new-game-buttons))))
+
+(defnc game-container []
+  (d/div {:id "game-container"} 
          ($ page-heading)
          ($ game-mode-selection)
          ($ player-name-input)
