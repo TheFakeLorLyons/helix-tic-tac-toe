@@ -74,7 +74,11 @@ body {
 }
 
 #solar-lunar-slider {
+  margin-top: 100px;
+  justify-content: flex-end;
+  justify-self: flex-end;
   z-index: 2;
+  overflow: hidden;
 }
 
 /* furthest 'back' texture */

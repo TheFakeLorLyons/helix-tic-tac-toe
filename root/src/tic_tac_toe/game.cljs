@@ -333,7 +333,10 @@
 
 (defnc mobile-game-container []
   (let [state (use-sub [:game-state])]
-    (d/div  {:id "mobile-game-container"}
+    (d/div  {:id "mobile-game-container"
+             :style {:margin-top (if (:show-background state) 
+                                   "-750px"
+                                   "32px")}}
             ($ mobile-page-heading)
             ($ mobile-game-mode-selection)
             ($ mobile-player-name-input)
