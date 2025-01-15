@@ -121,20 +121,23 @@
 (defnc app []
   (let [state (use-sub [:game-state])
         is-mobile (use-mobile-check)]
+
     (hooks/use-effect
-     [is-mobile]
-     (js/console.log "Is mobile?" is-mobile)
-     (js/console.log "Attempting to render:" (if is-mobile "mobile container" "main container")))
+     []
+     (when is-mobile
+       (try
+         (js/screen.orientation.lock "portrait")
+         (catch :default e
+           (js/console.log "Orientation lock failed:" e))))
 
-
-    (d/div {:id "global-body"
-            :class "relative min-h-screen"}
-           ($ game/toggle-theme-button)
-           (when (:show-background state)
-             ($ art/scene {:turns (:turns state)}))
-           (if is-mobile
-             ($ game/mobile-game-container)
-             ($ game/game-container)))))
+     (d/div {:id "global-body"
+             :class "relative min-h-screen"}
+            ($ game/toggle-theme-button)
+            (when (:show-background state)
+              ($ art/scene {:turns (:turns state)}))
+            (if is-mobile
+              ($ game/mobile-game-container)
+              ($ game/game-container)))))
 
 (defn ^:dev/after-load after-load []
   (.render @root ($ app)))
