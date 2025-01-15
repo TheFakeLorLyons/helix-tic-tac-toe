@@ -1,11 +1,10 @@
 (ns tic-tac-toe.game
   (:require [helix.core :refer [defnc $]]
-            [helix.core :as hx :refer [$]]
             [helix.dom :as d]
             [refx.alpha :refer [use-sub dispatch]]))
 
-(defn check-winner [table-data]
-  (let [board (for [row table-data
+(defn check-winner [current-board]
+  (let [board (for [row current-board
                     col [:col1 :col2 :col3]]
                 (get row col))
         rows (partition 3 board)
@@ -15,26 +14,26 @@
         all-lines (concat rows cols [diag1 diag2])]
     (some #(when (and (apply = %) (not= (first %) "-")) (first %)) all-lines)))
 
-(defn check-draw [table-data]
-  (every? #(not= "-" %) (flatten (map #(vals (dissoc % :id)) table-data))))
+(defn check-draw [current-board]
+  (every? #(not= "-" %) (flatten (map #(vals (dissoc % :id)) current-board))))
 
-(defn get-available-moves [table-data]
+(defn get-available-moves [current-board]
   (for [row (range 3)
         col (range 3)
-        :let [row-data (nth table-data row)
+        :let [row-data (nth current-board row)
               cell-value (get row-data (keyword (str "col" (inc col))))]
         :when (= "-" cell-value)]
     [row (keyword (str "col" (inc col)))]))
 
-(defn make-move-on-board [table-data row col-key player]
+(defn make-move-on-board [current-board row col-key player]
   (map-indexed (fn [idx row-data]
                  (if (= idx row)
                    (assoc row-data col-key player)
                    row-data))
-               table-data))
+               current-board))
 
-(defn evaluate-board [table-data player]
-  (let [winner (check-winner table-data)
+(defn evaluate-board [current-board player]
+  (let [winner (check-winner current-board)
         opponent (if (= player "X") "O" "X")]
     (cond
       (= winner player) 10
@@ -44,70 +43,71 @@
 (def memo-evaluate-board (memoize evaluate-board))
 (def memo-check-winner (memoize check-winner))
 
-(defn minimax [table-data player depth maximizing? alpha beta]
-  (let [winner (memo-check-winner table-data)
-        moves (get-available-moves table-data)]
+(defn minimax [current-board player depth maximizing? alpha beta]
+  (let [winner (memo-check-winner current-board)
+        moves (get-available-moves current-board)]
     (cond
       (or winner (zero? depth) (empty? moves))
-      [(memo-evaluate-board table-data player) nil]
+      [(memo-evaluate-board current-board player) nil]
+
       maximizing?
-   (let [results
-         (loop [moves-left moves
-                best-score js/Number.NEGATIVE_INFINITY
-                best-move nil
-                alpha alpha]
-           (if (or (empty? moves-left) (>= alpha beta))
-             [best-score best-move]
-             (let [[row col-key] (first moves-left)
-                   new-board (make-move-on-board table-data row col-key player)
-                   [score _] (minimax new-board player (dec depth) false alpha beta)
-                   new-best-score (max best-score score)
-                   new-alpha (max alpha new-best-score)]
-               (recur (rest moves-left)
-                      new-best-score
-                      (if (> score best-score) [row col-key] best-move)
-                      new-alpha))))]
-     results)
+      (let [results
+            (loop [moves-left moves
+                   best-score js/Number.NEGATIVE_INFINITY
+                   best-move nil
+                   alpha alpha]
+              (if (or (empty? moves-left) (>= alpha beta))
+                [best-score best-move]
+                (let [[row col-key] (first moves-left)
+                      new-board (make-move-on-board current-board row col-key player)
+                      [score _] (minimax new-board player (dec depth) false alpha beta)
+                      new-best-score (max best-score score)
+                      new-alpha (max alpha new-best-score)]
+                  (recur (rest moves-left)
+                         new-best-score
+                         (if (> score best-score) [row col-key] best-move)
+                         new-alpha))))]
+        results)
 
-   :else
-   (let [opponent (if (= player "X") "O" "X")
-         results
-         (loop [moves-left moves
-                best-score js/Number.POSITIVE_INFINITY
-                best-move nil
-                beta beta]
-           (if (or (empty? moves-left) (<= beta alpha))
-             [best-score best-move]
-             (let [[row col-key] (first moves-left)
-                   new-board (make-move-on-board table-data row col-key opponent)
-                   [score _] (minimax new-board player (dec depth) true alpha beta)
-                   new-best-score (min best-score score)
-                   new-beta (min beta new-best-score)]
-               (recur (rest moves-left)
-                      new-best-score
-                      (if (< score best-score) [row col-key] best-move)
-                      new-beta))))]
-     results))))
+      :else
+      (let [opponent (if (= player "X") "O" "X")
+            results
+            (loop [moves-left moves
+                   best-score js/Number.POSITIVE_INFINITY
+                   best-move nil
+                   beta beta]
+              (if (or (empty? moves-left) (<= beta alpha))
+                [best-score best-move]
+                (let [[row col-key] (first moves-left)
+                      new-board (make-move-on-board current-board row col-key opponent)
+                      [score _] (minimax new-board player (dec depth) true alpha beta)
+                      new-best-score (min best-score score)
+                      new-beta (min beta new-best-score)]
+                  (recur (rest moves-left)
+                         new-best-score
+                         (if (< score best-score) [row col-key] best-move)
+                         new-beta))))]
+        results))))
 
-(defn get-computer-move [table-data]
-  (let [[_ best-move] (minimax table-data "O" 9 true js/Number.NEGATIVE_INFINITY js/Number.POSITIVE_INFINITY)]
+(defn get-computer-move [current-board]
+  (let [[_ best-move] (minimax current-board "O" 9 true js/Number.NEGATIVE_INFINITY js/Number.POSITIVE_INFINITY)]
     (when best-move
       (let [[row col-key] best-move]
-        {:row (nth table-data row)
+        {:row (nth current-board row)
          :col col-key}))))
 
 (defn make-move [row col-key state] 
-  (let [new-table-data (map #(if (= (:id %) (:id row))
+  (let [new-board-data (map #(if (= (:id %) (:id row))
                                (assoc % col-key (:current-player state))
                                %)
-                            (:table-data state))
-        winner (check-winner new-table-data) 
-        is-draw (check-draw new-table-data)
+                            (:board-data state))
+        winner (check-winner new-board-data) 
+        is-draw (check-draw new-board-data)
         game-over (or winner is-draw)
         next-player (if (= (:current-player state) "X") "O" "X")]
     (cond-> state
       true (update :turns inc)
-      true (assoc :table-data new-table-data) 
+      true (assoc :board-data new-board-data) 
       (not game-over) (assoc :current-player next-player)
       game-over (-> (assoc :game-over true)
                     (update :total-games inc))
@@ -181,7 +181,7 @@
                                        (:player2-name state))
                                      " (" (:current-player state) ")"))))))
              (when (:game-over state)
-               (let [winner (check-winner (:table-data state))]
+               (let [winner (check-winner (:board-data state))]
                  (if winner
                    (d/p {:class "text-xl font-bold"}
                         (str (if (= winner "X")
@@ -190,13 +190,12 @@
                              " wins!"))
                    (d/p {:class "text-xl font-bold"} "It's a draw!"))))))))
 
-
 (defnc tic-tac-table []
   (let [state (use-sub [:game-state])]
     (when (:setup-complete state)
       (d/div {:id "tic-tac-table"}
              (d/div {:id "board"}
-                    (for [row (:table-data state)]
+                    (for [row (:board-data state)]
                       (for [col-key [:col1 :col2 :col3]]
                         (d/div {:key (str (:id row) (name col-key))
                                 :class "cell"
@@ -226,6 +225,14 @@
        (state :player1-name) " vs " (if (state :player2-name)
                                            (state :player2-name)
                                            "Computer")))))
+
+(defnc toggle-theme-button []
+  (d/div {:id "global-body"
+          :class "relative min-h-screen"}
+         (d/button {:id "theme-button"
+                    :class "theme-button"
+                    :on-click #(dispatch [:toggle-background])}
+                   "Toggle Background")))
 
 (defnc game-container-main []
   (d/div {:id "main-container"} 

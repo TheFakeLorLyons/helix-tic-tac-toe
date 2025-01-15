@@ -9,7 +9,7 @@
 (defonce root (atom nil))
 
 (def initial-game-state
-  {:table-data [{:id 1 :col1 "-" :col2 "-" :col3 "-"}
+  {:board-data [{:id 1 :col1 "-" :col2 "-" :col3 "-"}
                 {:id 2 :col1 "-" :col2 "-" :col3 "-"}
                 {:id 3 :col1 "-" :col2 "-" :col3 "-"}]
    :player1-name "Player"
@@ -23,7 +23,8 @@
    :current-player "X"
    :game-over false
    :setup-complete false
-   :show-art-scene true})
+   :show-background true
+   :mobile? false})
 
 (defonce app-db (atom initial-game-state))
 
@@ -43,7 +44,7 @@
  :new-game
  (fn [db _]
    (-> db
-       (assoc :table-data [{:id 1 :col1 "-" :col2 "-" :col3 "-"}
+       (assoc :board-data [{:id 1 :col1 "-" :col2 "-" :col3 "-"}
                            {:id 2 :col1 "-" :col2 "-" :col3 "-"}
                            {:id 3 :col1 "-" :col2 "-" :col3 "-"}])
        (assoc :current-player "X")
@@ -74,8 +75,8 @@
 (reg-event-db
  :computer-move
  (fn [db _]
-   (let [computer-move (main/get-computer-move (:table-data db))
-         row (first (filter #(= (:id %) (get-in computer-move [:row :id])) (:table-data db)))
+   (let [computer-move (main/get-computer-move (:board-data db))
+         row (first (filter #(= (:id %) (get-in computer-move [:row :id])) (:board-data db)))
          col (:col computer-move)]
      (main/make-move row col db))))
 
@@ -86,9 +87,9 @@
        (assoc :show-art-scene (:show-art-scene db)))))
 
 (reg-event-db
- :toggle-art-scene
+ :toggle-background
  (fn [db _]
-   (update db :show-art-scene not)))
+   (update db :show-background not)))
 
 (reg-sub
  :game-state
@@ -97,18 +98,15 @@
 
 (defnc app []
   (let [state (use-sub [:game-state])]
+    (js/console.log (str "mobile? " (:mobile? state)))
     (d/div {:id "global-body"
             :class "relative min-h-screen"}
-           (d/button {:id "theme-button"
-                      :class "theme-button"
-                      :on-click #(dispatch [:toggle-art-scene])}
-                     "Toggle Art Scene")
-           (when (:show-art-scene state)
+           ($ main/toggle-theme-button)
+           (when (:show-background state)
              ($ art/scene {:turns (:turns state)}))
            ($ main/game-container-main))))
 
 (defn ^:dev/after-load after-load []
-  (js/console.log "Reloading app...")
   (when-let [root-element @root]
     (.render root-element ($ app))))
 

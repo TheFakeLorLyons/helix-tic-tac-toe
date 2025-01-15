@@ -5,6 +5,9 @@
             [react :as react]))
 
 (def SPACE_RADIUS 500)
+(def DEFAULT_OPACITY 25)
+(defn peak-opacity [value]
+  (- 1 (* 2 (Math/abs (- value 0.5)))))
 
 (def dark-purple [29 18 22])
 (def navy [25 8 63])
@@ -84,7 +87,7 @@
          (d/defs
            (helix.core/create-element
             "filter"
-            #js {:id "deep-space"
+            #js {:id "deep-space" 
                  :x "0"
                  :y "0"
                  :width "100%"
@@ -209,7 +212,7 @@
              :height "100%"
              :fill "url(#inner-to-outer)"}))))
 
-(defn practice-matrix []
+(defn stars []
   (d/svg  {:id "p-matrix"
            :width "100%"
            :height "100%"}
@@ -225,6 +228,7 @@
              (helix.core/create-element
               "feTurbulence"
               #js {:baseFrequency ".2"
+                   #_#_:seed (rand-int 100)
                    :result "strong-noise"})
 
                    
@@ -243,35 +247,36 @@
             :height "100%"
             :filter "url(#matrix-filter)"})))
 
-
-
-
-
-
 (defn interpolate-color
   "Returns an rbg value in the form of a string based on two points and a varying midpoint."
-  [color1 color2 value]                               ;[[135 206 235] [25 25 112] .6]
-  (let [start-r (nth color1 0)
-        start-g (nth color1 1)
-        start-b (nth color1 2)
-        end-r (nth color2 0)
-        end-g (nth color2 1)
-        end-b (nth color2 2)
-        r (+ start-r (* value (- end-r start-r)))      ;(+ 135 ( * .5 (- 25 135)))
-        g (+ start-g (* value (- end-g start-g)))      ;         (-115*.6) = -69
-        b (+ start-b (* value (- end-b start-b)))]     ;(+ 135 -69)        = 46
-    (str "rgba(" (int r) "," (int g) "," (int b) ", .25)"))) ; returns "rgb(46, n2, n3)"
+  [color1 color2 value opacity-value]                               ;[[135 206 235] [25 25 112] .6]
+   (let [start-r (nth color1 0)
+         start-g (nth color1 1)
+         start-b (nth color1 2)
+         end-r (nth color2 0)
+         end-g (nth color2 1)
+         end-b (nth color2 2)
+         r (+ start-r (* value (- end-r start-r)))      ;(+ 135 ( * .5 (- 25 135)))
+         g (+ start-g (* value (- end-g start-g)))      ;         (-115*.6) = -69
+         b (+ start-b (* value (- end-b start-b)))]     ;(+ 135 -69)        = 46
+     (str "rgba(" (int r) "," (int g) "," (int b) ", " opacity-value ")"))) ; returns "rgb(46, n2, n3)"
 
 ;If I wanted to do a binary sliding gradient
-(defn binary-color-interpolation [slider-value start-color end-color]
-  (interpolate-color start-color end-color slider-value))
+(defn binary-color-interpolation 
+  ([slider-value start-color end-color]
+   (interpolate-color start-color end-color slider-value DEFAULT_OPACITY))
+  ([slider-value start-color end-color opacity-fn]
+  (interpolate-color start-color end-color slider-value opacity-fn)))
 
-(defn triple-point-interpolation [slider-value color1 color2 color3]
-  (if (< slider-value 0.5)
-    (let [adjusted-progress (* slider-value 2)]
-      (interpolate-color color1 color2 adjusted-progress))
-    (let [adjusted-progress (* (- slider-value 0.5) 2)]
-      (interpolate-color color2 color3 adjusted-progress))))
+(defn triple-point-interpolation
+  ([slider-value color1 color2 color3]
+   (triple-point-interpolation slider-value color1 color2 color3 DEFAULT_OPACITY))
+  ([slider-value color1 color2 color3 opacity-fn]
+   (if (< slider-value 0.5)
+     (let [adjusted-progress (* slider-value 2)]
+       (interpolate-color color1 color2 adjusted-progress opacity-fn))
+     (let [adjusted-progress (* (- slider-value 0.5) 2)]
+       (interpolate-color color2 color3 adjusted-progress opacity-fn)))))
 
 (defn test-o-color []
   (nth sky-colors (mod (dec 3) num-sky-colors)))
@@ -283,9 +288,9 @@
         color1 (nth sky-colors index)
         color2 (nth sky-colors (mod (inc index) num-sky-colors))]
     (cond
-      (< progress 0.0) (interpolate-color color1 color2 0)
-      (< progress 1.0) (interpolate-color color1 color2 progress)
-      :else (interpolate-color color2 color1 slider-value))))
+      (< progress 0.0) (interpolate-color color1 color2 0 DEFAULT_OPACITY)
+      (< progress 1.0) (interpolate-color color1 color2 progress DEFAULT_OPACITY)
+      :else (interpolate-color color2 color1 slider-value DEFAULT_OPACITY))))
 
   (defn solar-lunar-body
     "The Sun/Moon, pulling double duty."
@@ -297,12 +302,13 @@
               {:id "sun-gradient"
                :cx "50%" :cy "50%" :r "50%" :fx "50%" :fy "50%"}
               (d/stop {:offset "0%" :style {:stop-color current-color :stop-opacity 1}})
-              (d/stop {:offset "85%" :style {:stop-color "#2f2bea20" :stop-opacity 0.15}})
+              (d/stop {:offset "20%" :style {:stop-color "#2d2bf4f5" :stop-opacity 0.29}})
+              (d/stop {:offset "85%" :style {:stop-color "#2f2bea20" :stop-opacity 0.05}})
               (d/stop {:offset "100%" :style {:stop-color "#1f2b1ae0" :stop-opacity 0}}))
              (d/circle
               {:cx sun-moon-x
                :cy sun-moon-y
-               :r 75
+               :r 100
                :fill "url(#sun-gradient)"}))))
 
   (defn solar-lunar-slider
@@ -320,17 +326,18 @@
                       (triple-point-interpolation slider-value
                                                   navy
                                                   sky-blue
-                                                  light-blue)
+                                                  light-blue
+                                                  (peak-opacity slider-value))
                       (triple-point-interpolation slider-value
                                                   light-blue
                                                   sky-blue
-                                                  dark-purple))
+                                                  dark-purple
+                                                  (peak-opacity slider-value)))
           #_#_sky-color (n-color-interpolation slider-value)
           celestial-color (triple-point-interpolation slider-value
                                                       white
                                                       yellow
                                                       white)]
-
       (hooks/use-effect
        [turns]
        (when (number? turns)
@@ -342,7 +349,7 @@
               :style {:background sky-color}} 
              (sky-background)
              (space-lighting angle)
-             (practice-matrix)
+             (stars)
              (rings)
      ;The Sun/Moon        
              (solar-lunar-body angle celestial-color)

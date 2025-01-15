@@ -14,9 +14,13 @@ The minimum viable product (MVP) for this project includes the following feature
 
 - Win condition checks: The game ends when either player wins or when the board is full (draw). In this case the computer has been optimized to win or draw every game.
 
-- Simple text-based interface: The game board and current game status are displayed in the console.
+- Browser Interface (mobile friendly)
 
 - Game replay option: After each game, players can choose to play again. Statistics for the matches are saved in local storage and the user is provided a running tally of their current statistics.
+
+- Player vs. Player in addition to Player vs. Computer.
+
+- A button to switch between themes: a plain background, or an svg picture theme. The svg theme is synced to the gameplay.
   
 ### __Installation__
 
@@ -26,15 +30,15 @@ The minimum viable product (MVP) for this project includes the following feature
 
 3. git clone https://github.com/TheFakeLorLyons/helix-tic-tac-toe.git
 
-4. cd root(if necessary)
+4. cd root
 
 5. npm install in the terminal
 
-6. npm start will begin shadow-cljs and load the app
+6. npm start will begin shadow-cljs and load the app in the browser at localhost:8080
 
-### __alternatively, enjoy the game in the browser!__
+#### __...alternatively, enjoy the game in the browser!__
 
-The game is hosted at https://TheFakeLorLyons.github.io/helix-tic-tac-toe
+The game is hosted at https://TheFakeLorLyons.github.io/helix-tic-tac-toe via github pages
 
 ### __Technologies Used__
 
@@ -56,4 +60,5 @@ separated from the component logic. I also used SVGs a lot in this, although the
 
 - More themes and backgrounds.
 
-###### Thanks for checking out my application!
+###### Thank you for your time and consideration! 1/14/2025 -Lor
+🐍
